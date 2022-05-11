@@ -36,13 +36,6 @@ DEPFILES:=$(SOURCES:$(SRC_DIR)%.c=$(BUILD_DIR)/%.d)
 
 NODEPS:=clean
 
-# Don't create dependencies when we're cleaning, for instance
-ifeq (0, $(words $(findstring $(MAKECMDGOALS), $(NODEPS))))
-# Chances are, these files don't exist. That's why we do -include instead of
-# include.
--include $(DEPFILES)
-endif
-
 .PHONY: all clean doxygen
 
 all: $(EXEC)
@@ -60,6 +53,13 @@ clean:
 
 doxygen:
 	doxygen doxygen.conf
+
+# Don't create dependencies when we're cleaning, for instance
+ifeq (0, $(words $(findstring $(MAKECMDGOALS), $(NODEPS))))
+# Chances are, these files don't exist. That's why we do -include instead of
+# include.
+-include $(DEPFILES)
+endif
 
 ##! @endcond
 # ^ for Doxygen to ignore the Makefile rules
