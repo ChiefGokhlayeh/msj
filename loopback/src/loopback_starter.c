@@ -245,15 +245,15 @@ int main(void)
 
 #if defined(USE_MSVC_ANSI_C_SIM) || defined(USE_GCC_ANSI_C_SIM)
   // Der ADC "liest" aus dieser Datei
-  ADC_input_file = "y_cpfsk_sig.mat"; // enthält floats, nur ein Kanal
-                                      // Der DAC "schreibt" in diese Datei
+  ADC_input_file = "baulig_cpfsk.mat"; // enthält floats, nur ein Kanal
+                                       // Der DAC "schreibt" in diese Datei
   DAC_output_file = "ADDA8M12_DAC_data.mat";
 
-  // Dateien oeffnen, existiert ADC-Datei ueberhaupt?
+  // Dateien öffnen, existiert ADC-Datei überhaupt?
   fid_ADC_data = fopen(ADC_input_file, "r");
   if (fid_ADC_data == NULL)
   {
-    printf("Input file > y_cpfsk_sig.mat < file not found\n");
+    printf("Input file > %s < file not found\n", ADC_input_file);
     exit(0);
   }
   fid_DAC_data = fopen(DAC_output_file, "w");
