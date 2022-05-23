@@ -1,4 +1,5 @@
 *.d
+/**/gen
 /bin
 /build
 /doxygen
