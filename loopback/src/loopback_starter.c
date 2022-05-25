@@ -136,6 +136,9 @@ short left_channel_buffer[ADDA8M12_BUFSIZE];  // left_channel_buffer for ADC
 short right_channel_buffer[ADDA8M12_BUFSIZE]; // right_channel_buffer for ADC
 unsigned int tmp32, tmp32_L, tmp32_R;         // for DAC in case of NON_EDMA for DAC
 float PI;
+unsigned int sample_counter;
+
+#define DECIMATION_FACTOR (897)
 
 #if defined(USE_MSVC_ANSI_C_SIM) || defined(USE_GCC_ANSI_C_SIM)
 short count_blks = 0; // counter for number of EDMA blocks
@@ -591,8 +594,14 @@ int main(void)
         // innerhalb der for-loop kann in der Funktion "process_one_sample()" sample-basiert gearbeitet werden
         process_one_sample();
 
+        sample_counter++;
+        if (sample_counter >= DECIMATION_FACTOR)
+          sample_counter = 0;
+        else
+          continue;
+
 // Zuweisen der ADC Daten an DAC Daten ueber UNIONs
-//				ADDA8M12_DAC_data.channel[LEFT]  = ADDA8M12_ADC_data.channel[LEFT];
+//              ADDA8M12_DAC_data.channel[LEFT]  = ADDA8M12_ADC_data.channel[LEFT];
 //              ADDA8M12_DAC_data.channel[RIGHT] = ADDA8M12_ADC_data.channel[RIGHT];
 // einzelne Samples fuer DAC LINKS und RECHTS zum DAC ..
 #ifdef USE_DAC_EDMA_C6747
