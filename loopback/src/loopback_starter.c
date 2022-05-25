@@ -42,6 +42,7 @@
   includes
 ***********************************************************************/
 #include "processor.h" // control whether we have ANSI_C or HARDWARE_ADDA12M8_C6747 version
+#include "gen/bandpass.h"
 
 #ifdef USE_HARDWARE_ADDA8M12_C6747
 #include "..\..\dmodule\dm2c6747.h"
@@ -124,7 +125,7 @@ union
 short process_one_sample();
 
 // prototype for FIR filter in assembly
-short FIR_filter_sc(short FIR_delays[], short FIR_coe[], short int N_delays, short x_n, short sc);
+short FIR_filter_sc(short FIR_delays[], const short FIR_coe[], short int N_delays, short x_n, short sc);
 
 //--------------------------------------------------------------------
 //  global variables : MSJ : put your variables here below
@@ -137,6 +138,7 @@ short right_channel_buffer[ADDA8M12_BUFSIZE]; // right_channel_buffer for ADC
 unsigned int tmp32, tmp32_L, tmp32_R;         // for DAC in case of NON_EDMA for DAC
 float PI;
 unsigned int sample_counter;
+short fir_delays[sizeof(bp_coeff_num[0]) / sizeof(bp_coeff_num[0][0])] = {0};
 
 #define DECIMATION_FACTOR (897)
 
@@ -566,7 +568,7 @@ int main(void)
       // ADDA8M12_adc[2][ADDA8M12_BUFSIZE] aendert seinen Inhalt.
       // Der tempbuffer[] aendert sich jedoch nicht, weil der Prozessor nicht mehr laeuft, denn der Prozessor
       // fuehrt ja das Kopieren nicht mehr aus.
-      //			memcpy (tempbuffer[ADDA8M12_bufferReady], ADDA8M12_adc[ADDA8M12_bufferReady], 4*ADDA8M12_BUFSIZE);
+      //          memcpy (tempbuffer[ADDA8M12_bufferReady], ADDA8M12_adc[ADDA8M12_bufferReady], 4*ADDA8M12_BUFSIZE);
 #endif
 
       for (indx = 0; indx < ADDA8M12_BUFSIZE; indx++)
@@ -576,8 +578,8 @@ int main(void)
         ADDA8M12_ADC_data.channel[LEFT] = (short)(ADDA8M12_adc[ADDA8M12_bufferReady][indx]);
         ADDA8M12_ADC_data.channel[RIGHT] = (short)(ADDA8M12_adc[ADDA8M12_bufferReady][indx] >> 16);
         // Bei Bedarf: Kopieren der "int tempbuffer[2][]" - Daten nach short left_buffer[] und short right_buffer[]
-        //            	left_channel_buffer[indx]  = (short)(tempbuffer[ADDA8M12_bufferReady][indx]    );
-        //            	right_channel_buffer[indx] = (short)(tempbuffer[ADDA8M12_bufferReady][indx]>>16);
+        //              left_channel_buffer[indx]  = (short)(tempbuffer[ADDA8M12_bufferReady][indx]    );
+        //              right_channel_buffer[indx] = (short)(tempbuffer[ADDA8M12_bufferReady][indx]>>16);
 
         // Wenn man den linken und rechten Kanal in zwei separaten Buffern speichern will
         left_channel_buffer[indx] = ADDA8M12_ADC_data.channel[LEFT];
@@ -591,8 +593,10 @@ int main(void)
         left_in = ADDA8M12_adc[ADDA8M12_bufferReady][indx];
 #endif
 
-        // innerhalb der for-loop kann in der Funktion "process_one_sample()" sample-basiert gearbeitet werden
-        process_one_sample();
+        y_cpfsk_out = FIR_filter_sc(fir_delays,
+                                    bp_coeff_num[0],
+                                    sizeof(bp_coeff_num[0]) / sizeof(bp_coeff_num[0][0]),
+                                    left_in, 8);
 
         sample_counter++;
         if (sample_counter >= DECIMATION_FACTOR)
