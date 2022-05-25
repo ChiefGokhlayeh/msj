@@ -32,16 +32,16 @@
 // update of delay[0] done INSIDE this code
 //
 //---------------------------------------------------------------------
-short FIR_filter_sc(short FIR_delays[], short FIR_coe[], short int N_delays, short x_n, int shift)
+short FIR_filter_sc(short FIR_delays[], const short FIR_coe[], short int N_delays, short x_n, int shift)
 {
     short i, y;
     int FIR_accu32 = 0;
 
     // delays BACKWARDS, coefficients in FORWARD direction
-    FIR_delays[N_delays - 1] = x_n; // read input sample from ADC
-                                    // accumulate in 32 bit variable
-    FIR_accu32 = 0;                 // clear accu
-    for (i = 0; i < N_delays; i++)  // FIR filter routine
+    FIR_delays[N_delays - 1] = x_n >> shift; // read input sample from ADC
+                                             // accumulate in 32 bit variable
+    FIR_accu32 = 0;                          // clear accu
+    for (i = 0; i < N_delays; i++)           // FIR filter routine
         FIR_accu32 += FIR_delays[N_delays - 1 - i] * FIR_coe[i];
 
     // loop to shift the delays
