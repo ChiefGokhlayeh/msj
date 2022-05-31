@@ -43,6 +43,7 @@
 ***********************************************************************/
 #include "processor.h" // control whether we have ANSI_C or HARDWARE_ADDA12M8_C6747 version
 #include "gen/bandpass.h"
+#include "gen/hilbert.h"
 
 #ifdef USE_HARDWARE_ADDA8M12_C6747
 #include "..\..\dmodule\dm2c6747.h"
@@ -131,14 +132,16 @@ short FIR_filter_sc(short FIR_delays[], const short FIR_coe[], short int N_delay
 //  global variables : MSJ : put your variables here below
 //--------------------------------------------------------------------
 short indx;
-short left_in, right_in, y_cpfsk_out;
+short left_in, right_in, left_out, right_out;
 int tempbuffer[2][ADDA8M12_BUFSIZE];          // tempbuffer buffer for ADC
 short left_channel_buffer[ADDA8M12_BUFSIZE];  // left_channel_buffer for ADC
 short right_channel_buffer[ADDA8M12_BUFSIZE]; // right_channel_buffer for ADC
 unsigned int tmp32, tmp32_L, tmp32_R;         // for DAC in case of NON_EDMA for DAC
 float PI;
 unsigned int sample_counter;
-short fir_delays[sizeof(bp_coeff_num[0]) / sizeof(bp_coeff_num[0][0])] = {0};
+short bp_vals[sizeof(bp_coeff_num[0]) / sizeof(bp_coeff_num[0][0])] = {0};
+short hilbert_fir_vals[sizeof(hilbert_fir_num) / sizeof(hilbert_fir_num[0])] = {0};
+short hilbert_delay_vals[sizeof(hilbert_delay_num) / sizeof(hilbert_delay_num[0])] = {0};
 
 #define DECIMATION_FACTOR (897)
 
@@ -146,7 +149,7 @@ short fir_delays[sizeof(bp_coeff_num[0]) / sizeof(bp_coeff_num[0][0])] = {0};
 short count_blks = 0; // counter for number of EDMA blocks
 int ok;               // return value of fscanf
 FILE *fid_ADC_data, *fid_DAC_data;
-short y_cpfsk_out;
+short left_out, right_out;
 char *ADC_input_file, *DAC_output_file;
 float left_in_float;
 #endif
@@ -593,16 +596,28 @@ int main(void)
         left_in = ADDA8M12_adc[ADDA8M12_bufferReady][indx];
 #endif
 
-        y_cpfsk_out = FIR_filter_sc(fir_delays,
-                                    bp_coeff_num[0],
-                                    sizeof(bp_coeff_num[0]) / sizeof(bp_coeff_num[0][0]),
-                                    left_in, 8);
+        left_in = FIR_filter_sc(bp_vals,
+                                bp_coeff_num[0],
+                                sizeof(bp_coeff_num[0]) / sizeof(bp_coeff_num[0][0]),
+                                left_in,
+                                8);
 
         sample_counter++;
         if (sample_counter >= DECIMATION_FACTOR)
           sample_counter = 0;
         else
           continue;
+
+        left_out = FIR_filter_sc(hilbert_delay_vals,
+                                 hilbert_delay_num,
+                                 sizeof(hilbert_delay_num) / sizeof(hilbert_delay_num[0]),
+                                 left_in,
+                                 2);
+        right_out = FIR_filter_sc(hilbert_fir_vals,
+                                  hilbert_fir_num,
+                                  sizeof(hilbert_fir_num) / sizeof(hilbert_fir_num[0]),
+                                  left_in,
+                                  2);
 
 // Zuweisen der ADC Daten an DAC Daten ueber UNIONs
 //              ADDA8M12_DAC_data.channel[LEFT]  = ADDA8M12_ADC_data.channel[LEFT];
@@ -629,7 +644,7 @@ int main(void)
 #endif // #ifdef USE_DAC_EDMA_C6747
 #if defined(USE_MSVC_ANSI_C_SIM) || defined(USE_GCC_ANSI_C_SIM)
         // Schreiben in DAC Datei, aber nur im Falle von ANSI C
-        fprintf(fid_DAC_data, "%8hd %8hd\n", y_cpfsk_out, right_in); // y_CPFSK_demody
+        fprintf(fid_DAC_data, "%8hd %8hd\n", left_out, right_out);
 #endif
       } // end for (indx; ...
 
