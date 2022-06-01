@@ -136,6 +136,7 @@ short indx;
 short left_in, right_in, left_out, right_out;
 short bp_out;
 short analy_real, analy_imag, delay_real, delay_imag, demod_real, demod_imag;
+int demod_real_i32, demod_imag_i32;
 int tempbuffer[2][ADDA8M12_BUFSIZE];          // tempbuffer buffer for ADC
 short left_channel_buffer[ADDA8M12_BUFSIZE];  // left_channel_buffer for ADC
 short right_channel_buffer[ADDA8M12_BUFSIZE]; // right_channel_buffer for ADC
@@ -604,48 +605,48 @@ int main(void)
                                bp_coeff_num[0],
                                sizeof(bp_coeff_num[0]) / sizeof(bp_coeff_num[0][0]),
                                left_in,
-                               8);
+                               15);
 #else
-        bp_out = 0;
+        bp_out = left_in;
 #endif
 
         sample_counter++;
         if (sample_counter >= DECIMATION_FACTOR)
-          sample_counter = 0;
-        else
-          continue;
+        {
+          analy_real = FIR_filter_sc(hilbert_delay_vals,
+                                     hilbert_delay_num,
+                                     sizeof(hilbert_delay_num) / sizeof(hilbert_delay_num[0]),
+                                     bp_out,
+                                     15);
+          analy_imag = FIR_filter_sc(hilbert_fir_vals,
+                                     hilbert_fir_num,
+                                     sizeof(hilbert_fir_num) / sizeof(hilbert_fir_num[0]),
+                                     bp_out,
+                                     15);
 
-        analy_real = FIR_filter_sc(hilbert_delay_vals,
-                                   hilbert_delay_num,
-                                   sizeof(hilbert_delay_num) / sizeof(hilbert_delay_num[0]),
-                                   bp_out,
-                                   2) >>
-                     8;
-        analy_imag = FIR_filter_sc(hilbert_fir_vals,
-                                   hilbert_fir_num,
-                                   sizeof(hilbert_fir_num) / sizeof(hilbert_fir_num[0]),
-                                   bp_out,
-                                   2) >>
-                     8;
+          demod_real_i32 = delay_real * analy_real - (-delay_imag) * analy_imag;
+          demod_imag_i32 = delay_real * analy_imag + (-delay_imag) * analy_real;
 
-        demod_real = delay_real * analy_real - (-delay_imag) * analy_imag;
-        demod_imag = delay_real * analy_imag + (-delay_imag) * analy_real;
+          demod_real = demod_real_i32 >> 16;
+          demod_imag = demod_imag_i32 >> 16;
 
-        delay_real = analy_real;
-        delay_imag = analy_imag;
+          delay_real = analy_real;
+          delay_imag = analy_imag;
 
-        left_out = (short)(atan2(
-                               ((float)demod_imag) / INT16_MAX,
-                               ((float)demod_real) / INT16_MAX) *
-                           (INT16_MAX / PI));
+          left_out = (short)(atan2(
+                                 ((float)demod_imag) / INT16_MAX,
+                                 ((float)demod_real) / INT16_MAX) *
+                             (INT16_MAX / PI));
+          right_out = bp_out;
+        }
 
 // Zuweisen der ADC Daten an DAC Daten ueber UNIONs
 //              ADDA8M12_DAC_data.channel[LEFT]  = ADDA8M12_ADC_data.channel[LEFT];
 //              ADDA8M12_DAC_data.channel[RIGHT] = ADDA8M12_ADC_data.channel[RIGHT];
 // einzelne Samples fuer DAC LINKS und RECHTS zum DAC ..
 #ifdef USE_DAC_EDMA_C6747
-        ADDA8M12_DAC_data.channel[LEFT] = left_in;
-        ADDA8M12_DAC_data.channel[RIGHT] = right_in;
+        ADDA8M12_DAC_data.channel[LEFT] = left_out;
+        ADDA8M12_DAC_data.channel[RIGHT] = right_out;
         // DAC Ausgabe : Schreiben left_in und right_in zum DAC, auch hier UNION verwenden
         // Bei Bedarf: Kopieren von rechts nach links, wenn man nur einen Eingang benutzt
         //              ADDA8M12_DAC_data.channel[LEFT] = ADDA8M12_ADC_data.channel[RIGHT];
