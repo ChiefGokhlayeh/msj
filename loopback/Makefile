@@ -28,7 +28,7 @@ BIN_DIR:=bin
 DOC_DIR:=doxygen
 
 EXEC:=loopback_starter
-LIBS:=
+LIBS:=-lm
 SOURCES:=$(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/**/*.c)
 OBJECTS:=$(SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 INCLUDES:=\

@@ -97,6 +97,7 @@ CSL_Edma3ccRegsOvly edma3cc0Regs = (CSL_Edma3ccRegsOvly)CSL_EDMA3CC_0_REGS;
 #include <stdio.h>  // for printf
 #include <math.h>   // for sin/cos
 #include <stdlib.h> // for FILE*
+#include <stdint.h> // for INT16_MAX
 
 // ###################################################################
 //------------- BEGIN OF MSJ declaration section -----------------------
@@ -133,6 +134,8 @@ short FIR_filter_sc(short FIR_delays[], const short FIR_coe[], short int N_delay
 //--------------------------------------------------------------------
 short indx;
 short left_in, right_in, left_out, right_out;
+short bp_out;
+short analy_real, analy_imag, delay_real, delay_imag, demod_real, demod_imag;
 int tempbuffer[2][ADDA8M12_BUFSIZE];          // tempbuffer buffer for ADC
 short left_channel_buffer[ADDA8M12_BUFSIZE];  // left_channel_buffer for ADC
 short right_channel_buffer[ADDA8M12_BUFSIZE]; // right_channel_buffer for ADC
@@ -596,11 +599,15 @@ int main(void)
         left_in = ADDA8M12_adc[ADDA8M12_bufferReady][indx];
 #endif
 
-        left_in = FIR_filter_sc(bp_vals,
-                                bp_coeff_num[0],
-                                sizeof(bp_coeff_num[0]) / sizeof(bp_coeff_num[0][0]),
-                                left_in,
-                                8);
+#if defined(USE_MSVC_ANSI_C_SIM) || defined(USE_GCC_ANSI_C_SIM)
+        bp_out = FIR_filter_sc(bp_vals,
+                               bp_coeff_num[0],
+                               sizeof(bp_coeff_num[0]) / sizeof(bp_coeff_num[0][0]),
+                               left_in,
+                               8);
+#else
+        bp_out = 0;
+#endif
 
         sample_counter++;
         if (sample_counter >= DECIMATION_FACTOR)
@@ -608,16 +615,29 @@ int main(void)
         else
           continue;
 
-        left_out = FIR_filter_sc(hilbert_delay_vals,
-                                 hilbert_delay_num,
-                                 sizeof(hilbert_delay_num) / sizeof(hilbert_delay_num[0]),
-                                 left_in,
-                                 2);
-        right_out = FIR_filter_sc(hilbert_fir_vals,
-                                  hilbert_fir_num,
-                                  sizeof(hilbert_fir_num) / sizeof(hilbert_fir_num[0]),
-                                  left_in,
-                                  2);
+        analy_real = FIR_filter_sc(hilbert_delay_vals,
+                                   hilbert_delay_num,
+                                   sizeof(hilbert_delay_num) / sizeof(hilbert_delay_num[0]),
+                                   bp_out,
+                                   2) >>
+                     8;
+        analy_imag = FIR_filter_sc(hilbert_fir_vals,
+                                   hilbert_fir_num,
+                                   sizeof(hilbert_fir_num) / sizeof(hilbert_fir_num[0]),
+                                   bp_out,
+                                   2) >>
+                     8;
+
+        demod_real = delay_real * analy_real - (-delay_imag) * analy_imag;
+        demod_imag = delay_real * analy_imag + (-delay_imag) * analy_real;
+
+        delay_real = analy_real;
+        delay_imag = analy_imag;
+
+        left_out = (short)(atan2(
+                               ((float)demod_imag) / INT16_MAX,
+                               ((float)demod_real) / INT16_MAX) *
+                           (INT16_MAX / PI));
 
 // Zuweisen der ADC Daten an DAC Daten ueber UNIONs
 //              ADDA8M12_DAC_data.channel[LEFT]  = ADDA8M12_ADC_data.channel[LEFT];
