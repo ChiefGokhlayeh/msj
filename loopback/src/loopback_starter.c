@@ -43,7 +43,12 @@
 ***********************************************************************/
 #include "processor.h" // control whether we have ANSI_C or HARDWARE_ADDA12M8_C6747 version
 #include "gen/bandpass.h"
+#if defined(USE_HILBERT)
 #include "gen/hilbert.h"
+#endif
+#if defined(USE_COMB)
+#include "gen/comb.h"
+#endif
 
 #ifdef USE_HARDWARE_ADDA8M12_C6747
 #include "..\..\dmodule\dm2c6747.h"
@@ -144,8 +149,14 @@ unsigned int tmp32, tmp32_L, tmp32_R;         // for DAC in case of NON_EDMA for
 float PI;
 unsigned int sample_counter;
 short bp_vals[sizeof(bp_coeff_num[0]) / sizeof(bp_coeff_num[0][0])] = {0};
+#if defined(USE_HILBERT)
 short hilbert_fir_vals[sizeof(hilbert_fir_num) / sizeof(hilbert_fir_num[0])] = {0};
 short hilbert_delay_vals[sizeof(hilbert_delay_num) / sizeof(hilbert_delay_num[0])] = {0};
+#endif
+#if defined(USE_COMB)
+short comb_real_vals[sizeof(comb_coeff_num_real) / sizeof(comb_coeff_num_real[0])] = {0};
+short comb_imag_vals[sizeof(comb_coeff_num_real) / sizeof(comb_coeff_num_real[0])] = {0};
+#endif
 
 #define DECIMATION_FACTOR (897)
 
@@ -615,6 +626,7 @@ int main(void)
         {
           sample_counter = 0;
 
+#if defined(USE_HILBERT)
           analy_real = FIR_filter_sc(hilbert_delay_vals,
                                      hilbert_delay_num,
                                      sizeof(hilbert_delay_num) / sizeof(hilbert_delay_num[0]),
@@ -625,6 +637,20 @@ int main(void)
                                      sizeof(hilbert_fir_num) / sizeof(hilbert_fir_num[0]),
                                      bp_out,
                                      15);
+#endif
+
+#if defined(USE_COMB)
+          analy_real = FIR_filter_sc(comb_real_vals,
+                                     comb_coeff_num_real,
+                                     sizeof(comb_coeff_num_real) / sizeof(comb_coeff_num_real[0]),
+                                     bp_out,
+                                     15);
+          analy_imag = FIR_filter_sc(comb_imag_vals,
+                                     comb_coeff_num_imag,
+                                     sizeof(comb_coeff_num_imag) / sizeof(comb_coeff_num_imag[0]),
+                                     bp_out,
+                                     15);
+#endif
 
           demod_real_i32 = delay_real * analy_real - (-delay_imag) * analy_imag;
           demod_imag_i32 = delay_real * analy_imag + (-delay_imag) * analy_real;

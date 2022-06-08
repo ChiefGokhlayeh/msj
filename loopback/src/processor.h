@@ -30,3 +30,6 @@
 #ifdef USE_MSVC_ANSI_C_SIM
 #define _CRT_SECURE_NO_WARNINGS
 #endif
+
+// #define USE_HILBERT
+#define USE_COMB
