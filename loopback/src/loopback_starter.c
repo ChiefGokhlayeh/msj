@@ -613,6 +613,8 @@ int main(void)
         sample_counter++;
         if (sample_counter >= DECIMATION_FACTOR)
         {
+          sample_counter = 0;
+
           analy_real = FIR_filter_sc(hilbert_delay_vals,
                                      hilbert_delay_num,
                                      sizeof(hilbert_delay_num) / sizeof(hilbert_delay_num[0]),
